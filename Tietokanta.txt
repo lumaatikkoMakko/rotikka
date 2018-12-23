@@ -1,0 +1,331 @@
+mysql -u fllsuomi -p -h mysql.fllsuomi.org fllsuomi
+http://mysql.fllsuomi.org/
+
+
+
+
+
+CREATE TABLE julkisuus (
+    julkID SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    julkisuus VARCHAR(30),
+    PRIMARY KEY (julkID)
+    )ENGINE=InnoDB DEFAULT CHARSET=utf8; 
+INSERT INTO julkisuus VALUES ('1', 'yleinen');
+INSERT INTO julkisuus VALUES ('30', 'huoltaja');
+INSERT INTO julkisuus VALUES ('100', 'oppilas');
+INSERT INTO julkisuus VALUES ('1000', 'ope');
+
+
+CREATE TABLE kayttajat(
+	kID  SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+	nimi VARCHAR(128), 
+	ssana CHAR(128),
+	julkID SMALLINT UNSIGNED,
+	FOREIGN KEY (julkID) REFERENCES julkisuus(julkID),
+	PRIMARY KEY(kID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+INSERT INTO kayttajat VALUES (NULL, 'testi', SHA1("testi"), 1);
+
+
+CREATE TABLE aiheet(
+	ID SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+	nimi VARCHAR(128),
+	primary KEY(ID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+INSERT INTO aiheet values(NULL, 'FLL 2014 - pohja');
+
+INSERT INTO aiheet values(NULL, 'FLL 2014 - posteri');
+INSERT INTO aiheet values(NULL, 'FLL 2013 - posteri');
+INSERT INTO aiheet values(NULL, 'FLL 2012 - posteri');
+INSERT INTO aiheet values(NULL, 'FLL 2011 - posteri');
+INSERT INTO aiheet values(NULL, 'FLL 2010 - posteri');
+INSERT INTO aiheet values(NULL, 'FLL 2009 - posteri');
+INSERT INTO aiheet values(NULL, 'FLL 2008 - posteri');
+INSERT INTO aiheet values(NULL, 'FLL 2007 - posteri');
+INSERT INTO aiheet values(NULL, 'FLL 2006 - posteri');
+
+
+CREATE TABLE materiaalit(
+	ID  SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+	aiheID SMALLINT UNSIGNED,
+	data LONGBLOB NOT NULL,
+	pvm DATETIME, 
+	nimi VARCHAR(256),
+	palauttajaID SMALLINT UNSIGNED,
+	FOREIGN KEY (aiheID) REFERENCES aiheet(ID),
+	FOREIGN KEY (palauttajaID) REFERENCES kayttajat(kID),
+	PRIMARY KEY(ID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+ALTER TABLE kalenteri ADD column 	karttalinkki VARCHAR(2048); 
+ALTER TABLE kalenteri ADD column 	kuvanimi VARCHAR(2048); 
+ALTER TABLE kalenteri ADD column 	tmpnimi VARCHAR(2048); 
+ALTER TABLE kalenteri DROP column kuva; 
+ALTER TABLE kalenteri ADD column 	tarkkapvm BIT(1); 
+
+
+ALTER TABLE kalenteri ADD column 	youtube VARCHAR(2048); 
+ALTER TABLE kalenteri ADD column 	twitter VARCHAR(2048); 
+ALTER TABLE kalenteri ADD column 	instagram VARCHAR(2048); 
+ALTER TABLE kalenteri ADD column 	facebook VARCHAR(2048); 
+ALTER TABLE kalenteri ADD column 	tapahtumalinkki VARCHAR(2048); 
+
+CREATE TABLE kalenteri(
+	ID  SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+	pvm DATETIME, 
+        tarkkapvm BIT(1),
+	loppupvm DATETIME, 
+	otsikko VARCHAR(256),
+	osoite VARCHAR(256),
+	karttalinkki VARCHAR(2048), 
+	kuvanimi VARCHAR(2048),
+	tmpnimi VARCHAR(2048),
+	kuvaus VARCHAR(32512),
+	PRIMARY KEY(ID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+INSERT INTO kalenteri VALUES(NULL, '2015-2-14 13:00','2015-2-14 16:30', "PopUp-tapahtuma, TTY", "Tampere", "Päläpälä");
+INSERT INTO kalenteri VALUES(NULL, '2015-3-21 13:00','2015-3-21 16:30', "PopUp-tapahtuma, TTY", "Tampere", "Päläpälä");
+INSERT INTO kalenteri VALUES(NULL, '2015-4-18 13:00','2015-4-18 16:30', "PopUp-tapahtuma, TTY", "Tampere", "Päläpälä");
+INSERT INTO kalenteri VALUES(NULL, '2014-3-1 13:00','', "Ilmoittautuminen alkaa", "Suomi", "Päläpälä");
+
+INSERT INTO kalenteri VALUES(NULL, '2014-8-26 00:00','', "Kisa julkaistaan", "Maailma", "Päläpälä");
+
+
+
+
+CREATE TABLE kalenteriKuvaus(
+	ID  SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+	kuvaus VARCHAR(128),
+	PRIMARY KEY(ID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+INSERT INTO kalenteriKuvaus VALUES(NULL, 'Valmentajan harjoitus' );
+INSERT INTO kalenteriKuvaus VALUES(NULL, 'Paikallinen tapahtuma' );
+INSERT INTO kalenteriKuvaus VALUES(NULL, 'Viro' );
+INSERT INTO kalenteriKuvaus VALUES(NULL, 'FLL yleinen' );
+INSERT INTO kalenteriKuvaus VALUES(NULL, 'Koko perheen tapahtuma' );
+INSERT INTO kalenteriKuvaus VALUES(NULL, 'Opettajan koulutusta' );
+INSERT INTO kalenteriKuvaus VALUES(NULL, 'Yliopisto' );
+INSERT INTO kalenteriKuvaus VALUES(NULL, '' );
+INSERT INTO kalenteriKuvaus VALUES(NULL, '' );
+
+CREATE TABLE osallistujat(
+	ID SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+	ilmopvm DATE,
+	nimi VARCHAR (1024),
+	sposti VARCHAR (1024),
+	yksikko VARCHAR (1024),
+	lahiosoite VARCHAR (1024),
+	postinro VARCHAR (1024),
+	postitoimipaikka VARCHAR (1024),
+	PRIMARY KEY(ID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+CREATE TABLE ilmo(
+	ID SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+	kuvaus VARCHAR(20),
+	PRIMARY KEY(ID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+INSERT INTO ilmo VALUES(10, 'LUMA');
+INSERT INTO ilmo VALUES(20, 'FLL');
+INSERT INTO ilmo VALUES(30, 'Muu');
+
+
+CREATE TABLE osallistujaIlmo(
+	ID SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+	oID SMALLINT UNSIGNED,
+	iID SMALLINT UNSIGNED,
+	PRIMARY KEY(ID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+CREATE TABLE toimi(
+	ID SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+	kuvaus VARCHAR(20),
+	PRIMARY KEY(ID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+INSERT INTO toimi VALUES(10, 'Opettaja');
+INSERT INTO toimi VALUES(20, 'Valmentaja');
+INSERT INTO toimi VALUES(30, 'Kisaaja');
+INSERT INTO toimi VALUES(40, 'Huoltaja');
+INSERT INTO toimi VALUES(50, 'Muu');
+
+CREATE TABLE osallistujatoimi(
+	ID SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+	oID SMALLINT UNSIGNED,
+	tID SMALLINT UNSIGNED,
+	PRIMARY KEY(ID)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+
+//drop table osallistujatoimi;# MySQL palautti tyhjän tulosjoukon (siis nolla riviä).
+//drop table osallistujailmo;# MySQL palautti tyhjän tulosjoukon (siis nolla riviä).
+//drop table osallistujat;# MySQL palautti tyhjän tulosjoukon (siis nolla riviä).
+
+
+CREATE TABLE kuvat(
+   kuvaID SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+   nimi  VARCHAR(100),
+   nimirnd VARCHAR(100),
+   hakemisto VARCHAR(100),
+   kuvaaja  VARCHAR(100),
+   lisayspvm  DATETIME, 
+   pvm  DATETIME, 
+   size INT UNSIGNED,
+   tapahtuma SMALLINT UNSIGNED, 
+   FOREIGN KEY (tapahtuma) REFERENCES kalenteri(ID),
+   PRIMARY KEY (kuvaID)
+)ENGINE=InnoDB DEFAULT CHARSET=utf8; 
+
+
+
+
+CREATE TABLE htmlsivut(
+   sivuID SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+   nimi  VARCHAR(100),
+   PRIMARY KEY (sivuID)
+)ENGINE=InnoDB DEFAULT CHARSET=utf8; 
+INSERT INTO htmlsivut VALUES(NULL, 'index.php');
+INSERT INTO htmlsivut VALUES(NULL, 'tapahtumat.php');
+INSERT INTO htmlsivut VALUES(NULL, 'media.php');
+INSERT INTO htmlsivut VALUES(NULL, 'opetus.php');
+INSERT INTO htmlsivut VALUES(NULL, 'materiaalia.php');
+INSERT INTO htmlsivut VALUES(NULL, 'kisat.php');
+INSERT INTO htmlsivut VALUES(NULL, 'yhteystiedot.php');
+INSERT INTO htmlsivut VALUES(NULL, '2016/index.php');
+
+SELECT sivuID, nimi FROM htmlsivut WHERE nimi LIKE '%yhteystiedot.php%';
+SELECT sivuID, nimi FROM htmlsivut WHERE nimi LIKE '%/fllsuomi/media.php%';
+
+
+
+CREATE TABLE lastChangehtml(
+   changeID SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+   sivuID SMALLINT UNSIGNED,
+   pvm  DATETIME,
+   FOREIGN KEY (sivuID) REFERENCES htmlsivut(sivuID),
+   PRIMARY KEY (changeID)
+)ENGINE=InnoDB DEFAULT CHARSET=utf8; 
+
+
+alter table lastChangehtml ADD UNIQUE KEY sivuIDdate (sivuID, pvm);
+
+
+
+
+INSERT INTO myTable(field1, field2, datefield) VALUES ('val1', 'val2', '2012:12:12 12:12')
+ON DUPLICATE KEY UPDATE
+datefield=IF(datefield < VALUES(datefield), VALUES(datefield), datefield),
+field2=IF(datefield < VALUES(datefield), VALUES(field2), field2)
+
+
+CREATE TABLE lastVisithtml(
+   visitID SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+   sivuID SMALLINT UNSIGNED,
+   remoteIP  VARCHAR(100),
+   forwardedIP  VARCHAR(100),
+   pvm  DATETIME,
+   FOREIGN KEY (sivuID) REFERENCES htmlsivut(sivuID),
+   PRIMARY KEY (visitID)
+)ENGINE=InnoDB DEFAULT CHARSET=utf8; 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CREATE TABLE joukkueet(
+   joukkueID SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+   nimi  VARCHAR(100),
+   koulu  VARCHAR(100),
+   kunta  VARCHAR(100),
+   aloitusvuosi  SMALLINT,
+   valmentaja  VARCHAR(100),
+   sposti VARCHAR(100),
+   youtube VARCHAR(100),
+   twitter VARCHAR(100),
+   PRIMARY KEY (joukkueID)
+)ENGINE=InnoDB DEFAULT CHARSET=utf8; 
+INSERT INTO joukkueet VALUES(NULL, 'Testi-Aapinen', '', '', '', '', '','','');
+INSERT INTO joukkueet VALUES(NULL, 'Testi-Pirita', '', '', '', '', '','','');
+INSERT INTO joukkueet VALUES(NULL, 'Testi-Sisilisko', '', '', '', '', '','','');
+INSERT INTO joukkueet VALUES(NULL, 'Testi-Taavetti', '', '', '', '', '','','');
+INSERT INTO joukkueet VALUES(NULL, 'Testi-Eino', '', '', '', '', '','','');
+
+CREATE TABLE kisat(
+   kisaID SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+   nimi  VARCHAR(100),
+   paikkakunta  VARCHAR(100),
+   tapahtumaID  SMALLINT UNSIGNED,
+   tunnus SMALLINT, 
+   alkupvm DATE,
+   PRIMARY KEY (kisaID)
+)ENGINE=InnoDB DEFAULT CHARSET=utf8; 
+INSERT INTO kisat VALUES(NULL, 'Satakunnan aluekisat', 'Ulvila', 2, '2017-01-19',100);
+INSERT INTO kisat VALUES(NULL, 'SM-kisat', 'Viikki', 3, '2017-03-03',121);
+INSERT INTO kisat VALUES(NULL, 'Testikisat', 'Viikki', 3, '2017-03-03',12);
+
+
+
+CREATE TABLE joukkueetkisat(
+   ID SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+   joukkueID   SMALLINT UNSIGNED,
+   kisaID  SMALLINT UNSIGNED,
+   FOREIGN KEY (joukkueID) REFERENCES joukkueet(joukkueiD),
+   FOREIGN KEY (kisaID) REFERENCES kisat(kisaiD),
+   PRIMARY KEY (ID)
+)ENGINE=InnoDB DEFAULT CHARSET=utf8; 
+INSERT INTO joukkueetkisat VALUES(NULL, 1,3);
+
+
+CREATE TABLE pisteet(
+   ID SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+   joukkueID   SMALLINT UNSIGNED,
+   kisaID  SMALLINT UNSIGNED,
+   eraID SMALLINT UNSIGNED,
+   muutettu TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+   tuomariID SMALLINT UNSIGNED, 
+   pisteet VARCHAR(8192),
+   summa SMALLINT UNSIGNED,
+
+   FOREIGN KEY (joukkueID) REFERENCES joukkueet(joukkueiD),
+   FOREIGN KEY (kisaID) REFERENCES kisat(kisaiD),
+   FOREIGN KEY (tuomariID) REFERENCES kayttajat(kID),
+
+   PRIMARY KEY (ID)
+)ENGINE=InnoDB DEFAULT CHARSET=utf8; 
+
+CREATE TABLE erapisteet(
+   ID SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+   kisaID  SMALLINT UNSIGNED,
+   nimi VARCHAR(100),
+   era1 SMALLINT UNSIGNED,
+   era2 SMALLINT UNSIGNED,
+   era3 SMALLINT UNSIGNED,
+
+   FOREIGN KEY (kisaID) REFERENCES kisat(kisaiD),
+
+   PRIMARY KEY (ID)
+)ENGINE=InnoDB DEFAULT CHARSET=utf8; 
+
+INSERT INTO erapisteet (joukkueID, kisaID, nimi) VALUES (1, 7, 'Aapinen');
+INSERT INTO erapisteet (joukkueID, kisaID, nimi) VALUES (2, 7, 'Banaani');
+
+
+SELECT ID, pisteet, summa from pisteet 
+                    WHERE (joukkueID = 1 AND eraID = 1 ) 
+                    ORDER BY ID DESC
+

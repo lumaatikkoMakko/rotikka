@@ -1,0 +1,40 @@
+
+$ git clone https://github.com/AlracWebmaven/playground.git
+$ git checkout -b testbranch
+Switched to a new branch 'test'
+
+$git status
+
+$ git commit README.md
+$ git commit file1 file2
+$ git commit -a
+
+$ git log --branches --not --remotes
+
+$ git fetch origin master
+$ git merge origin master
+
+$ git push origin testbranch 
+
+
+
+$ git config --global credential.helper cache
+  # Set git to use the credential memory cache
+$ git config --global credential.helper 'cache --timeout=7200'
+
+$ git config credential.helper store
+$ git pull
+
+
+
+
+https://www.linux.com/learn/beginning-git-and-github-linux-users
+
+
+
+
+https://longair.net/blog/2009/04/16/git-fetch-and-merge/
+http://rogerdudler.github.io/git-guide/
+
+
+
