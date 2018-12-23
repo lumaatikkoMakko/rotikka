@@ -1,0 +1,1459 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+
+
+<!-- Basic Page Needs
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta charset="utf-8">
+  <title>Uniboard.</title>
+  <meta name="description" content="">
+  <meta name="author" content="@MarkkuOpe">
+
+  <!-- Mobile Specific Metas
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- CSS
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="stylesheet" href="css/skeleton.css">
+  <script src="js/jquery.min.js"></script>
+  <link rel="stylesheet" href="css/default.css">
+
+
+<script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML'></script>
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+  tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]}
+});
+</script>
+
+
+  <!-- Favicon
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="icon" type="image/png" href="images/favicon.png">
+
+  
+<style>
+
+.h1{
+	font-size:30px;
+}
+
+</style>
+
+
+
+</head>
+<body>
+	
+	
+<?php
+//include 'php/getIPs.php';
+?>
+	
+	
+
+<div id="container">
+	
+	
+	<div class="kpl">
+	<h1>Uniboard</h1>
+	</div>
+	
+	<div class="kpl">
+		<h3>Introduction</h3>	
+
+<p>Three different filtering methods: 1) Complementary, 2) Kalman Simple, 3) Kalman Dynamics.</p>
+
+	</div>
+
+	
+		<div class="kpl">
+<h2>Setting Up Arduino</h2>	
+
+<div class="row">
+<div class="six columns">
+<h3>Windows</h3>
+
+<p>Using and configuring Genuino 101 is straightforward. Install the drivers using the Arduino IDE, and the board starts working.
+Follow the manual at 
+<a href="https://www.arduino.cc/en/Guide/Arduino101#toc3">Arduino 101 Install</a>. </p>
+
+</div>
+<div class="six columns">
+<h3>Ubuntu Linux</h3>
+<p>The manuals state the APT:ed software is outdated. Thus, use the manuals found at <a href="https://www.arduino.cc/en/Guide/Linux/">Arduino Linux Guide</a>. The installation is straightforward&mdash;just unpack the (big) compressed file to a desired location and run the <code>./install.sh</code> script at the unpacked directory. Again, by following the installation guide and <em>downloading</em> the correct Genuino101 Curie packages the microcircuit starts working.
+</p>
+
+
+</div>
+</div>
+
+	</div>
+
+	
+	
+	<div class="kpl">
+<h3>Gyroscope and accelerometer</h3>
+
+
+<p>
+Arduino Library <a href="https://www.arduino.cc/en/Tutorial/Genuino101CurieIMUGyro">CurieIMU.h</a> gives access to the sensors of the <a href="https://en.wikipedia.org/wiki/Inertial_measurement_unit">IMU</a> chip. There are six degrees of freedom, three orthogonal axis for acceleration and angular velocity. See the IMU <a href="http://ae-bst.resource.bosch.com/media/_tech/media/datasheets/BST-BMI160-DS000-07.pdf">BMI 160 data sheet</a> for more information. </p> 
+
+<p>
+The accelerometer is in general very noise when it is used to measure the gravitational acceleration since the robot is moving. Gyro drifts over time&mdash;like a normal spinning top. We denote by $\theta_a$ the angle from accelerometer and $\theta_g$ the angle obtained using gyroscope.  
+</p>
+
+<p>The accelerometer is subject to vibration from the motors and sudden stops and starts as the robot stays balanced – in other words it is too noisy by itself. </p>
+
+<p>The measured acceleration vector components look as follows:
+$$
+\begin{align*}
+a_x &= 1g\sin\phi\cos\varphi \\
+a_y &= -1g\sin\phi\sin\varphi \\
+a_z &= 1g\cos\phi
+\end{align*}
+$$
+from which follows that
+$\tan\varphi = - \frac{a_y}{a_x}$. Genuino can be calibrated using <code>autoCalibrate</code> functions without these functions.</p>
+
+<div class="row">
+<div class="seven columns">
+<P>
+Thus, we are using both sensors to obtain sensor input, accelerometer gives the angle $\theta_a$ and gyroscope the angular velocity $\omega$. The angular velocity $\omega$ can be integrated 
+$\theta_g = \int \omega d t$ to an angle by using e.g. the simple Euler method $\Delta \theta_g = \omega \Delta t$. 
+</p>
+
+<p>Below we shall plot these values and check their consistency.</p>
+
+
+<p>The angle $\theta$ can be calculated either by using $\arctan 2()$ function or by a small-angle approximation $\tan\theta \approx \theta$ if $|\theta|$ is small enough. In this implemention the angle is always smaller than XXXX. Thus, the small-angle approximation is valid. </p>
+
+<pre><code>set terminal png transparent
+set output 'smallAngleTan.png'
+ 
+set xlabel "Angle in Radians"
+set ylabel "Difference"
+
+set xtics ("0" 0, "π/24" 3.14/24 ,"π/12" 3.14/12 , "π/8" 3.14/8, "π/6" 3.14/6)
+
+plot [0:3.14/6] abs( x-tan(x) ) lw 2
+</code>
+</pre>
+
+<p>
+<img class="u-full-width" src="smallAngleTan.png">
+Image: The error of the small-angle approximation.
+</p>
+
+
+</div>
+<div class="five columns">
+<img class="u-full-width" src="images/genuino101_axyz.png">
+<img class="u-full-width" src="angleAcceleration.svg">
+</div>
+
+</div>
+
+
+
+<h3>Arduino code: Acceleration</h3>
+
+
+<div class="row">
+<div class="six columns">
+<pre><code>include "CurieIMU.h"
+
+void setup() {
+  Serial.begin(9600); // initialize Serial communication
+  while (!Serial);    // wait for the serial port to open
+
+  // initialize device
+  Serial.println("Initializing IMU device...");
+  CurieIMU.begin();
+
+  //Calibrate
+  CurieIMU.autoCalibrateGyroOffset();
+  CurieIMU.autoCalibrateAccelerometerOffset(X_AXIS,0);
+  CurieIMU.autoCalibrateAccelerometerOffset(Y_AXIS,0);
+  CurieIMU.autoCalibrateAccelerometerOffset(Z_AXIS,1);
+                      
+  // Set the accelerometer range to 1G
+  CurieIMU.setAccelerometerRange(1);
+}
+
+void loop() {
+  float ax, ay, az;   //scaled accelerometer values
+  // read accelerometer measurements from device, scaled to the configured range
+  CurieIMU.readAccelerometerScaled(ax, ay, az);
+
+  // display tab-separated accelerometer x/y/z values
+  Serial.print("ax, az, theta :\t ");
+  Serial.print(ax);
+  Serial.print("\t");
+  Serial.print(az);
+  Serial.print("\t");
+  Serial.print(-atan2(ax, az)*180/3.14159);
+  Serial.println();
+}
+</code></pre>
+
+</div>
+<div class="six columns">
+
+
+<img class="u-full-width" src="images/acceleration0.png">
+<p>The image visualizes the angle acquired using the $\tan\theta$ method shown above. The code to generate is below. The mean value of the angle is $E(\theta) = -0.0178474^\circ$ and standard deviation is 
+$\sigma(\theta) = 0.0554702651268227$. The number of data points is 64417. The image is generated by using the gnu script at <a href="http://gnuplot-surprising.blogspot.com/2011/09/statistic-analysis-using-gnuplot-1.html">Gnuplot Surprising: Statics Analysis 1</a>. 
+
+
+</div>
+</div>
+
+
+<h3>Arduino code: Gyroscope Angle & Drift</h3>
+<div class="row">
+<div class="six columns">
+
+<pre><code>
+include "CurieIMU.h"
+
+unsigned long time;
+float angle;
+
+void setup() {
+  Serial.begin(9600); // initialize Serial communication
+  while (!Serial);    // wait for the serial port to open
+
+  // initialize device
+  Serial.println("Initializing IMU device...");
+  CurieIMU.begin();
+
+  //Calibrate
+  CurieIMU.autoCalibrateGyroOffset();
+
+  // Set the accelerometer range to 2G
+  CurieIMU.setGyroRange(250);
+  time = micros();
+  angle = 0;
+}
+
+void loop() {
+  float gx, gy, gz;   //scaled gyro values
+  unsigned long dt;
+  // read accelerometer measurements from device, scaled to the configured range
+  CurieIMU.readGyroScaled(gx, gy, gz);
+  // display tab-separated accelerometer x/y/z values
+  Serial.print("gy:\t angle:\t time:\t");
+  Serial.print(gy);
+  Serial.print("\t");
+  dt = micros() - time;
+  angle = angle + gy*dt*1e-6;
+  Serial.print(angle);
+  Serial.print("\t");
+  Serial.print( micros() );  
+  Serial.println();
+  time = micros();
+}
+
+</code></pre>
+
+</div>
+<div class="six columns">
+<img class="u-full-width" src="images/gyro0.png">
+<p>
+Image: The angle using the Euler integration. Time is in seconds. The coefficient is $0.00248095^\circ/$s. 
+The image is generated using the gnuplot code below.
+</p>
+<pre><code>plot 'position4.txt' u ($6/1e6):5
+f(x) = a*x
+fit f(x) 'position4.txt' u ($6/1e6):5 via a
+replot f(x)
+</code>
+</pre>
+
+</div>
+</div>
+
+
+
+
+<h3>Arduino code: Store the values using Python</h3>
+
+The data sent via Serial bus is easily read and stored using eg. Python. The <a href="https://stackoverflow.com/questions/20892133/storing-string-from-arduino-to-text-file-using-python#20920766
+">Stack Overflow</a> shows how to do it.
+<pre><code>## https://stackoverflow.com/questions/20892133/storing-string-from-arduino-to-text-file-using-python#20920766
+##
+## import the serial library
+import serial
+
+## Boolean variable that will represent
+## whether or not the arduino is connected
+connected = False
+
+## establish connection to the serial port that your arduino
+## is connected to.
+
+locations=['/dev/ttyUSB0','/dev/ttyUSB1','/dev/ttyUSB2','/dev/ttyUSB3', '/dev/ttyACM0']
+
+for device in locations:
+    try:
+       print "Trying...",device
+       ser = serial.Serial(device, 9600)
+       break
+    except:
+       print "Failed to connect on",device
+
+## loop until the arduino tells us it is ready
+while not connected:
+    serin = ser.read()
+    connected = True
+
+## open text file to store the current
+text_file = open("position4.txt", 'w')
+## read serial data from arduino and
+## write it to the text file 'position.txt'
+while connected:
+  if ser.inWaiting():
+     x=ser.read()
+     print(x)
+     text_file.write(x)
+     #if x=="\n":
+     #   text_file.seek(0)
+     #   text_file.truncate()
+     text_file.flush()
+
+## close the serial connection and text file
+text_file.close()
+ser.close()
+</code></pre> 
+
+
+
+<h3>Low Pass Filter</h3>
+<p>
+Low pass filter reduces some of the noice by using the previous data, also. Let $z_k$ denote the data measured, and $z_{k-1}$ be the data previously measured. A simple low pass filter generates a weighted mean of the results
+$$
+z = p z_k + (1-p) z_{k-1}
+$$ 
+where $p\in[0,1]$ is an <em>ad hoc</em> parameter. Also, it generates some lag to the data. 
+
+</p>
+<h3>High  Pass Filter</h3>
+<p>
+
+
+
+</p>
+
+<h3>Complementary Filter</h3>
+
+<p>
+Complementary filter combines the two measured angles to one angle, only, as we should have. The low pass filter is used to smooth the accelerometer data and high pass filter on the gyroscope data. Thus, we have the estimation for angle at time $k$:
+$$
+\begin{align*}
+\theta_k &= p( \theta_{k-1} + \Delta \theta^g) + (1-p)\theta^a \\
+\Delta \theta^g &= \omega \Delta t \\
+p &\in [0,1]
+\end{align*}
+$$
+</p>
+<p>The first part, $\theta_{k-1} + \Delta \theta^g$, is the integration part and by multiplying it by the parameter $p$ resembles the high pass filter. The angle obtained from accelerometer is low pass filtered. </p>
+
+<p>As a rule of the thumb, the gyroscope reading should be given bigger weight $p \approx 0.9$ since that is less noise-prone and accelerometer thus should be given a lower weight as its measurement is noisy, and it is used to correct gyroscope drift.</p>
+
+</p>
+
+<div class="row">
+
+
+<div class="six columns">
+
+<pre><code>
+#include "CurieIMU.h"
+#
+unsigned long time;
+float angle, angle_g, angle_a, angle_prev;
+float p;
+
+void setup() {
+  Serial.begin(9600); // initialize Serial communication
+  while (!Serial);    // wait for the serial port to open
+
+  // initialize device
+  Serial.println("Initializing IMU device...");
+  CurieIMU.begin();
+
+  //Calibrate
+  CurieIMU.autoCalibrateGyroOffset();
+  CurieIMU.autoCalibrateAccelerometerOffset(X_AXIS,0);
+  CurieIMU.autoCalibrateAccelerometerOffset(Y_AXIS,0);
+  CurieIMU.autoCalibrateAccelerometerOffset(Z_AXIS,1);
+                      
+
+  // Set the accelerometer range to 2G
+  CurieIMU.setGyroRange(250);
+  time = micros();
+  angle = 0;
+  angle_prev = 0;
+  angle_a = 0;
+  angle_g = 0;
+ p = 0.99;
+                      
+}
+
+void loop() {
+  int gx, gy, gz;     //raw gyro values
+  float ax, ay, az;   //scaled gyro values
+  unsigned long dt;
+
+  // read accelerometer measurements from device
+  CurieIMU.readGyro(gx, gy, gz);
+  CurieIMU.readAccelerometerScaled(ax, ay, az);
+
+  // display tab-separated accelerometer x/y/z values
+  Serial.print("a:\t g:\t c: \t time:\t");
+  angle_a = -atan2(ax, az)*180/3.14159;
+  Serial.print(angle_a);
+  Serial.print("\t");
+
+  dt = micros() - time;
+  float ag = (gy/32768.9)*250*180/100;
+  angle_g = ag*dt*1e-6 + angle_g;
+  Serial.print(angle_g);
+  Serial.print("\t");
+
+  angle = p*(angle_prev + ag*dt*1e-6) + (1-p)*angle_a;
+  Serial.print(angle);
+  Serial.print("\t");
+                                                           
+  Serial.print( micros() );  
+  Serial.println();
+  angle_prev = angle;
+  time = micros();
+}
+</code></pre>
+
+</div>
+<div class="six columns">
+
+<a href="images/complementaryFilter_p099.png">
+<img class="u-full-width" src="images/complementaryFilter_p099.png">
+</a>
+
+<p>The blue line indicates the result of complementary filter when $p=0.99$ and the Arduino is gently moved on a moderate angle. The red curve indicates the angle from angle measurements, and it is very noisy. The green line is the integrated angle from a gyroscope.</p>
+
+</div>
+</div>
+
+
+
+	</div>
+
+	
+<div class="kpl">
+<h3>Euler Angles and IMU output</h3>	
+
+<p>Pitch angle</p>
+
+
+pitch = atan2(accYval, accZval)+PI
+roll = atan2(accXval, accZval)+PI
+
+
+<a href="https://roboticdreams.wordpress.com/2015/04/24/building-an-arduino-based-self-balancing-robot-part-1/">Hyvä juttu PID</a>
+
+<p>
+Accelerometer: 
+$\sin\theta = \frac{a_z}g$ josta seuraa $\theta(t) \approx \frac{a_z}g$, when $|\theta(t) |< 30^\circ$.
+</p>
+<p>Gyroscope $\omega$ gives $\Delta \theta(t) = \omega \Delta t$. </p>
+<p>Together: $\theta(t) =\theta(t-1) + \omega \Delta t$. Constant bias: $\theta(t) = \theta(t-1) + (\omega - \omega_\text{bias} ) \Delta t$. The bias varies slowly over time and is typically modeled as white noise or a “random walk”.  This is measured by something called the “bias stability”. 
+</p>
+
+<p>
+<a href="https://en.wikipedia.org/wiki/Sensor_fusion">Sensor Fusion</a>. Kalman/ filter. Filter $\theta(t) = \alpha[ \theta(t-1) + (\omega- \omega_\text{bias} )\Delta t ] + (1-\alpha)a_z/g$
+
+
+</p>
+
+
+
+
+
+	</div>
+
+	
+<div class="kpl">
+<h3>Motor Controller and Electronics</h3>	
+
+<p>
+We use the motor controller by <a href="https://granitedevices.com/">Granite Devices</a>. The Ioni Servo& Stepper Drive is used to drive the motor (from $5$ W to $500$ W) on position, velocity or torque mode.
+
+</p>
+
+<ul>
+<li> IONICUBE 1X Single Axis IONI Motherboard 45€</li>
+<li> IONI Pro Servo & Stepper Drive 179€</li>
+<li> SimpleMotion V2 USB Adapter 19,50€</li>
+</ul>
+
+<p>
+IONI pro jaksaa puskea harjalliseen sen 30A, tosin jos aiot jossain vaiheessa päivittää harjattomaan BLDC/AC-servoon, niin pro HC voisi olla pitkäikäisempi.
+</p>
+
+
+<a href="https://granitedevices.com/wiki/IONI_device_model_comparison">IONI Comparision</a>
+
+
+<a href="https://granitedevices.com/wiki/IONI_%26_IONICUBE_user_guide/Wiring_overview_with_IONICUBE_1X">Wiring Schematics</a>
+
+
+<p>
+Onko sulla muuten siitä moottorista mitään datalehteä tai vastaavaa teknistä pumaskaa? Voisin nopsaan vilkaista, että sen motin induktanssi on sopiva.
+<ul>
+<li>Motor inductance range @ 48 VDC     0.2-25  mH</li>
+<li>Motor inductance range @ 24 VDC     0.1-25  mH</li>
+</ul>
+</p>
+
+<p>
+vääntömoodissa PWM:llä (suuntabitillä tai ilman). Arduinosta saa sellasta kuitenkin tosi helposti, eikä vaadi juuri mitään johdotusta. Eli ioni ei tällöin välitä paikasta eikä nopeudesta, vaan komentaa suoraan vääntöä/virtaa moottoriin. Täytyy sitten pitää huoli siitä, ettei mikää bugi laita liikaa virtaa liian nopeasti :). Plus aluksi on hyvä rajata muutenkin maksimivirta pieneksi, että saa varmistettua laitteen toiminnan.
+</p>
+
+<p>
+IONI:t vaatii sitten aina STO:n (safe torque off) johdotettuna, ja tässä tapauksessa varmaan myös ENABLE-signaali kannattaa laittaa johdolla, ettei tarvii kikkailla softalla. Käytännössä siis ionicube 1x:n liitin X4 pinneihin 19 ja 20 5-24V. Saman liittimen pinni 2 antaa 5V ulos. Siitä pitäis saada virrat arduinollekin.
+</p>
+
+<p>
+Kun pääset säätämään moottoria, niin aina ensimmäiseksi vääntömoodi:
+<a href="https://granitedevices.com/wiki/Tuning_torque_controller">Tuning Torque Controller</a>
+</p>
+
+<p>
+Ja sen jälkeen moottoria on hyvä pyörittää pienellä virralla vähän aikaa yhteen suuntaan, että varmistuu johdotuksen oikeus:
+<a href="https://granitedevices.com/wiki/Servo_motor_torque_mode_test">Torque mode test</a>
+</p>
+
+
+<p>
+Harjallista moottoria käsittääkseni pystyy ajamaan vääntömoodissa (ohjataan pelkkää virtaa) ilman takaisinkytkentää (enkooderia). Pakko pystyä, kun noilla ohjaimilla voi ajaa mihin tahansa kuormaan virtaa, kunhan toi induktanssi on kohdillaan (tasaa virtarippelin).
+</p>
+
+
+<p>
+Täällä ainakin on hyvät valikoimat:
+https://www.omc-stepperonline.com/?tracking=5a01dd25ad4b0
+</p>
+
+<p>Torque Control</p>.
+
+	</div>
+
+
+<div class="kpl">
+<h3>Torque</h3>
+
+<p>
+The DC motor's torque is proportional to the product of the armature current and the machine's total flux strength, according to <a href="https://en.wikipedia.org/wiki/Brushed_DC_electric_motor#Torque_and_speed_of_a_DC_motor">Wikipedia</a>:
+$$
+T = k_T I_a \Phi
+$$
+where $I_a$ is armature current and $\Phi$ is machine's total flux.
+
+</p>
+
+
+<p>There are four types of brushed DC motors: 1. permament magnet (the most common), 2. shunt wound, 3. series wound, 4. compond wound. 
+</p>
+
+
+</div>
+
+
+
+
+	
+<div class="kpl">
+<h3>Kalman filtering</h3>
+<ul>
+<li><a href="http://www.bzarg.com/p/how-a-kalman-filter-works-in-pictures/">How Kalman filter works in pictures</a></li>
+
+<li><a href="https://www.hackster.io/s_r-tronics/self-balancing-robot-using-mpu-6050-accelerometer-74d57d">Kalman.h</a>
+
+<li><a href="http://www.kerrywong.com/2012/03/08/a-self-balancing-robot-i/">Why not use Kalman</a>
+</li>
+
+<li>
+<a href="https://www.slideshare.net/antoniomorancardenas/data-fusion-with-kalman-filtering">Sensor fusion with Kalman filtering</a>
+</li>
+
+    <li><a href="http://blog.tkjelectronics.dk/2012/03/the-balancing-robot/#update">Balancing (small) robot. Arduino</a></li>
+    <li><a href="http://blog.tkjelectronics.dk/2012/09/a-practical-approach-to-kalman-filter-and-how-to-implement-it/">Kalman filtering on a balancing robot</a></li>
+
+
+<li><a href="http://robottini.altervista.org/kalman-filter-vs-complementary-filter">Kalman vs Complementary</a></li>
+
+<li><a href="http://forum.arduino.cc/index.php/topic,8871.0.html">Kalman on Arduino Forum</a></li>
+
+</ul>
+
+
+
+
+<p>Kalman filtering is also called linear quadratic estimation (LQE). It is is an algorithm that uses a series of measurements observed over time, containing statistical noise and other inaccuracies, and produces estimates of unknown variables that tend to be more accurate than those based on a single measurement alone, by estimating a joint probability distribution over the variables for each timeframe as stated in <a href="https://en.wikipedia.org/wiki/Kalman_filter">Wikipedia</a>.
+</p>
+
+
+<h4>Kalman Filtering (tkj electronics)</h4>
+
+
+<p>The system state $\hat x_k$. 
+The hat means the estimate of the state, $\hat x$, compared to the true state $x$.
+</p>
+
+<ul>
+
+
+
+<li>The previous estimated state based on the previous state and the estimates of the states before it: $\hat x_{k-1|k-1} </li>
+
+<li> a priori state (the estimate of the state matrix at the current time $k$ based on the previous state of the system and the estimates of the states before it.) $\hat x_{k|k-1}$ </li>
+
+<li>
+a posteriori (the estimated of the state at time $k$ given observations up to and including at time $k$.) state $\hat x_{k|k}$.
+</li>
+
+
+<li>Observation $z_k$.</li>
+
+<li>The true state at time $k$ is given by
+$$
+x_k = Fx_{k-1} + B u_k + w_k
+$$
+where $x_k$ is the state matrix; $x_k = [\theta, \dot \theta_b]^T$, where $\dot \theta_b$ is the bias. 
+
+
+<li>The $F$ matrix is the state transition model; 
+$$
+\begin{align*}
+F = 
+\begin{bmatrix}
+1 & -\Delta t\\
+0 & 1
+\end{bmatrix}
+\end{align*}
+$$
+
+</li>
+
+<li>Control input $u_k$ (this case gyroscopic measurement in $^\circ/s$: $\dot \theta = \omega$.
+The bias is not affected. 
+$$
+\begin{align*}
+B = 
+\begin {bmatrix}
+\Delta t \\ 0 
+\end{bmatrix}
+\end{align*}
+$$
+
+</li>
+
+<li>The term $w_k$ is the Gaussian process noice with a zero mean and with covatiriance $Q$: $w_k \sim N(0,Q_k)$
+$$
+\begin{align*}
+Q_k = 
+\begin {bmatrix}
+Q_\theta & 0  \\
+0 & Q_{\dot \theta_b} 
+\end{bmatrix}
+\Delta t
+\end{align*}
+$$
+</li>
+
+</ul>
+
+<p>The measurement $z_k$. The observation or measurement $z_k$ of the true state $x_k$ </p>
+<ul>
+
+<li>The observation $z_k$ is given by $z_k = Hx_k + v_k$
+</li>
+
+<li>The matrix $H$ is the observation model and is used to map the true state space into the observed space (note that the true state cannot be observed). Now the measurement is only the measurement from the accelerometer, $H$ is given by $H = \begin{bmatrix}1& 0\end{bmatrix}$.
+</li>
+
+<li>The noise is Gaussian with zero mean: $v_k\sim N(0,R)$, but $R$ is defined as $R=E\begin{bmatrix} v & v^T \end{bmatrix}$, and we assume that $v_k$ is constant $\text{var } v_k = \text{var } v$.
+
+</ul>
+
+<p>Predict step</p>
+
+<ul>
+
+<li>We try to predict the current state and the error covariance matrix time $k$. First estimate the current state based on the previous states and gyro measurement: $\hat x_{k|k-1} = F \hat x_{k-1|k-1} + B \dot \theta_k$. That is why $B$ is called control input, since we use it as an extra input to estimate the state.
+</li>
+
+<li>We try to estimate the a priori error covariance matrix $P_{k|k-1}$ based on the previous error covariance matrix $P_{k-1|k-1}$: $P_{k|k-1} = F P_{k-1|k-1} F^T + Q_k$.
+
+</li>
+<li>The error covariance matrix $P$ is $2\times2$ matrix
+$$
+\begin{align*}
+P = 
+\begin {bmatrix}
+P_{00} & P_{01}  \\
+P_{10} & P_{11} 
+\end{bmatrix}
+\end{align*}
+$$
+
+
+</ul>
+<p>Update step</p>
+<ul>
+
+<li>The innovation is the difference between the measurement $z_k$ and a priori state $x_{k|k-1}$. The observation model is used to map the a priori state $x_{k|k-1}$ into the observation space. We have $\tilde y_k = z_k - H\hat x_{k|k-1}$.
+
+</li>
+
+<li>The innovation covariance is $S_k = HP_{k|k-1}H^T + R$ predicts how much we should trust the measurement based on a priori error covariance matrix and the measurement covariance matrix. 
+<ul>
+
+
+
+<li>If the startup state is unknow, the error covariance matrix can be initialized as (where $L$ is a big number)
+$$
+\begin{align*}
+P =  
+\begin {bmatrix}
+L&0\\
+0&L
+\end{bmatrix}
+\end{align*}
+$$
+
+
+<li>For the balancing robot we know the staring angle, and the bias of the gyro is found at the start up calibration. Thus, the state is known at startup and we initialize the error covariance as 
+$$
+\begin{align*}
+P =  
+\begin {bmatrix}
+0&0\\
+0&0
+\end{bmatrix}
+\end{align*}
+$$
+</li>
+</ul>
+
+
+
+
+
+<li>The Kalman gain is used to indicate how much we trust the innovation, and is defined as $K_k = P_{k|k-1} H^T S_k^{-1}$. 
+
+<ul>
+
+<li>
+The Kalman gain is $2\times 1$ matrix
+$$
+\begin{align*}
+K =  
+\begin {bmatrix}
+K_0\\
+K_1
+\end{bmatrix}
+\end{align*}
+$$
+
+
+</li>
+
+
+</ul>
+</li>
+
+
+
+<li>Now we can update the a posteriori estimate of the current state by $\hat x_{k|k} = \hat x_{k|k-1} + K_k \tilde y_k$.
+
+</li>
+
+<li>The last thing is to uådate the a posteriori error covariance matrix $P_{k|k} = (I-K_kH)P_{k_k-1}$ where $I$ is identity matrix.
+
+
+</ul>
+
+
+
+
+<div class="row">
+<div class="six columns">
+
+<h4>State variables</h4>
+
+<p>Let $x_k$ be the estimate of the system's state at time $k$, and $P_k$ the corresponding uncertainty (covariance matrix??)
+.
+The Kalman filter assumes that the state variables are Gaussian distributed with mean value $\mu$ and variance $\sigma^2$. The correlation between state variables is included into a covariance matrix $P$. The correlation arices bacause the next state is usually dependant of the previous one.  
+
+</p>
+
+<p>The current state $x_{k-1}$ is used to predict the next state at time $k$, also $x_k$. This done by a prediction matrix $F_k$, thus
+$$
+\begin{align*}
+ x_k &= F_k x_{k-1} \\
+ P_k &= F_k P_{k-1} F_k^T 
+\end{align*}
+$$
+where $F_k^T$ denotes transpose of matrix $F_k$.
+</p>
+
+
+</div>
+
+<div class="six columns">
+<h4>$\phi$ and $\omega$</h4>
+<p>
+
+The kalman filter is used to produce a good estimate of noisy acceleration angle and drifting gyroscope angle. The state vector is defined as
+$$
+\begin{align*}
+ x_k &= 
+\begin{bmatrix}
+\theta \\ \omega
+\end{bmatrix} \\
+\end{align*}
+$$
+</p>
+<p>By definition the <a href="https://en.wikipedia.org/wiki/Angular_velocity">angular velocity</a> is the rate of change of angle with respect to time:
+$$
+\omega = \frac{d \theta}{d t}
+$$ 
+which gives, assuming the angular velocity is constant, according to the simple <a href="https://en.wikipedia.org/wiki/Euler_method">Euler integration</a> a result $\theta^g = \omega \Delta t$. OBS. Use a better approximation.
+Thus, the prediction matrix $F_k$ can be written as
+$$
+\begin{align*}
+ F_k^\text{Euler} &= 
+\begin{bmatrix}
+1  & \Delta t  \\
+0  & 1  \\
+\end{bmatrix} \\
+\end{align*}
+$$
+
+</p>
+The covariance matrix incorporates the correlation between the angle and the angular velocity. The matrix is written as
+$$
+\begin{align*}
+ P_k &= 
+\begin{bmatrix}
+\Sigma_{\theta\theta}  & \Sigma_{\theta\omega}  \\
+\Sigma_{\omega\theta}  & \Sigma_{\omega\omega}  \\
+\end{bmatrix} \\
+\end{align*}
+$$
+</p>
+<p>We may assume that the acceleration and gyroscope measurements are uncorrelated, thus we get
+$$
+\begin{align*}
+ P_k &= 
+\begin{bmatrix}
+\Sigma_{\theta}  & 0  \\
+0                      & \Sigma_{\omega}  \\
+\end{bmatrix} \\
+\end{align*}
+$$
+
+
+
+<h4>Bias</h4>
+<p>Assuming the state vector as 
+$$
+\begin{align*}
+ x_k = 
+\begin{bmatrix}
+\phi    \\
+\dot \phi    \\
+\end{bmatrix} \\
+\end{align*}
+$$
+where $\dot\phi$ is the bias of the gyroscope the transition matrix $F$ is
+$$
+\begin{align*}
+ F &= 
+\begin{bmatrix}
+1  & -\Delta t  \\
+0  & 1  \\
+\end{bmatrix} \\
+\end{align*}
+$$
+
+
+
+
+
+</div>
+
+</div>
+
+
+<div class="row">
+<div class="six columns">
+<h4>Control Variables</h4>
+
+<p>
+However, the external control outside the state might affect the system via <em>Control matrix</em> $B$, thus we get the next state as $x_k = F_k x_{k-1} + B_k u_k$, where $u_k$ is the <em>control vector</em> affecting at time $k$.
+</p>
+
+</div>
+
+
+<div class="six columns">
+<h4>Angular acceleration $\alpha$</h4>
+<p>
+The force $F$ given by the motor is shown by the Newton's law an angular acceleration $\alpha$. Again, by using the simple integration methods, we find that the control matrix (now in $\mathbb R^{2\times1}$) is
+</p>
+$$
+\begin{align*}
+ B_k &= 
+\begin{bmatrix}
+ \frac12 \alpha \Delta t^2  \\
+ \Delta t  \\
+\end{bmatrix} \\
+\end{align*}
+$$
+while the control vector $u_k = \alpha$ is $u_k\in \mathbb R^1$ 
+
+
+<h4>Angular velocity $\alpha$ Second method</h4>
+The control input is  the gyroscope measurement in degrees per second $(^\circ/s)$ at time $k$, this is also called the rate $\dot \theta_k$, and we have
+
+$$
+\begin{align*}
+ x_k &= Fx_{k-1} + B\dot\theta_k \\
+ B &= 
+\begin{bmatrix}
+ \Delta t  \\
+ 0  \\
+\end{bmatrix} \\
+\end{align*}
+$$
+
+
+
+<h4>Current $I$</h4>
+In reality we employ some current $I$ to the motor, which is 
+
+<h4>Momentum $M$</h4>
+The electronics is driven as a momentum. 
+
+
+</div>
+
+</div>
+
+
+<div class="row">
+
+<div class="six columns">
+
+<h4>External Errors</h4>
+
+<p>
+Furthermore the external Gaussian process noice having a covariance $Q_k$ affects the system. Thus each point in $x_{k-1}$ is moved to somewhere inside a Gaussian random blob with covariance $Q_k$. Finally, the uncertainty $P_k$ is changed to $P_k = F_k P_{k-1} F_k^T  + Q_k$ 
+</p>
+
+<p>
+Thus, we have
+$$
+\begin{align*}
+ x_k &= F_k x_{k-1} + B_k u_k  \\
+P_k &= F_k P_{k-1} F_k^T + Q_k
+\end{align*}
+$$
+
+
+</p>
+
+
+</div>
+
+<div class="six columns">
+<h4>External Errors. Model</h4>
+
+<p>The external errors are modelled with a Gaussian with a zero mean and a covariance $Q_k$, which is an input parameter. We assume the bias and the accelerometer are independent, thus we have
+$$
+\begin{align*}
+Q_k &= 
+\begin{bmatrix}
+Q_\theta & 0 \\
+0 & Q_{\omega}
+\end{bmatrix}
+\Delta t
+\end{align*}
+$$
+
+
+</p> 
+
+<p>
+By setting too large value for the convariance matrix elementes there will be more noice in the estimation of the state. Otherwise, if the estimate tends to be too slow you are trusting the estimate of the angle too much and should decrease the value of $Q_\phi$ to make it more responsive.
+
+</p>
+
+
+</div>
+
+</div>
+
+
+
+
+
+<div class="row">
+
+<div class="six columns">
+
+<h4>Sensor data</h4>
+
+<p>
+The sensors tell us something indirect about the state. The sensors are modelled with a matrix $H_k$. The sensor data is, again, distributed with a mean $\mu_\text{expected}$ and variance $\sigma^2_\text{expected}$.
+
+
+</p>
+
+<p>
+Thus, we have
+$$
+\begin{align*}
+ y_k      &= H_k x_{k} (+ v_k) \\
+% \sigma^2_\text{expected} &= H_k P_{k} H_k^T 
+\end{align*}
+$$
+where $v_k$ is noise.
+</p>
+
+<p>The sensors are from a real world and thus have some noice. The uncertainty of the sensor noice is called $R_k$ and the mean of the distribution is $z_k$. </p>
+
+<p>Thus, we have two Gaussian distributions. One originating from the physical model via prediction and the other surrounding the actual sensor reading we got. According to the probabilistic theory the probability of the two distributions are both true, they need to be multiplied together. That gives the new distribution for which the both estimates are most likely. The great advantage of assuming Gaussian distribution is that by multiplying Gaussian distributions, the result is also a Gaussian, with its own mean and covariance matrix. 
+</p>
+
+
+
+<p>Multiplying the two Gaussian distributions with means $\mu_1$ and $\mu_2$ and variances $\sigma_1^2$ and $\sigma_2^2$ gives the total distibution with parameters
+$$
+\begin{align*}
+\mu &= \mu_1 + \frac{\sigma_1^2(\mu_2 - \mu_1)}{\sigma_1^2 + \sigma_2^2} = k(\mu_2-\mu_1) \\
+\sigma^2 &= \sigma_1^2 - \frac{\sigma_1^4}{\sigma_1^2 + \sigma_2^2} = \sigma_1^2 - k \sigma_1^2
+\end{align*}
+$$
+</p>
+where $k$ is given by
+$$
+\begin{align*}
+k = \frac{\sigma_1^2}{\sigma_1^2 + \sigma_2^2} = k(\mu_2-\mu_1) \\
+\end{align*}
+$$
+</p>
+
+<p>Multiplying two multinormal Gaussian distributions we get similar results:
+$$
+\begin{align*}
+K &= \Sigma_1 ( \Sigma_1 + \Sigma_2)^{-1}  \\
+\mu &= \mu_1 + K(\mu_2-\mu_1) \\
+\Sigma &= \sigma_1^2 -  K \sigma_1^2
+\end{align*}
+$$
+where $K$ is called <em>Kalman Gain</em>.
+</p>
+
+
+
+
+
+
+</div>
+
+<div class="six columns">
+
+<a href="http://sebastiannilsson.com/wp-content/uploads/2013/05/Self-balancing-two-wheeled-robot-report.pdf">lego</a>
+
+<p>
+"The  best  performance  was  observed  when  the  internal
+timer, accelerometer, gyroscope, battery level indicator, and
+motor encoders were used as sensor inputs. "
+</p>
+
+
+<h4>$a$ and $\alpha$</h4>
+<p>The Arduino 101 is included with an IMU chip, and thus we get acceleration and angular acceleration with respect to each orthogonal axis. Thus, it gives us an acceleration $a$ and an angular acceleration $\alpha$.
+
+
+</p> 
+
+<h4>Accelerometer</h4>
+<p>
+The measurement is the measurement from the accelerometer, the observation model matrix $H$ is given by
+$$
+\begin{align*}
+H = 
+\begin{bmatrix}
+1&0
+\end{bmatrix}
+\end{align*}
+$$
+and the noice is, again, Gaussian with zero mean and $R$ as a covariance. We assume that the measurement noise is independent on the time $k$.
+</p> 
+
+<p>
+if you set the measurement noise variance $\sigma^2_v$ too high the filter will respond really slowly as it is trusting new measurements less, but if it is too small the value might overshoot and be noisy since we trust the accelerometer measurements too much.
+</p>
+
+</div>
+
+</div>
+
+
+
+<div class="row">
+<div class="six columns">
+<h4>Final version</h4>
+
+By accomplishing all the previous knowledge, we have the predicted measurement $(\mu_0, \Sigma_0) = (H_k x_k, H_k P_k H_k^T)$ and the observed measurement with $(\mu_1, \Sigma_1)=(z_k, R_k)$. The overlap is
+$$
+\begin{align*}
+H_k x_k' &= H_k x_k + K(z_k - H_k x_k) \\
+H_k P_k' H_k^t &= H_k P_k H_k^T - K H_kP_kH_k^t 
+\end{align*}
+$$
+with the Kalman Gain
+$$
+K = H_k P_k H_k^T ( H_k P_k H_k^T + R_k )^{-1}
+$$
+which can be further simplified to
+$$
+\begin{align*}
+K' &=  P_k H_k^T ( H_k P_k H_k^T + R_k )^{-1}\\
+ x_k' &=  x_k + K(z_k - H_k x_k) \\
+P_k' &= P_k  - K' H_kP_k 
+\end{align*}
+$$
+
+
+</div>
+
+
+<div class="six columns">
+
+<h4>FV</h4>
+
+</div>
+</div>
+
+
+</p> 
+
+
+
+
+<p>
+Let $x_{k|k-1}$ be the estimate of the system's state at time step $k$ before  the $k$th measurement $y_k$ has been into account.
+The variable $P_{k|k-1}$ is the corresponding uncertainty (covariance matrix??).  The Prior knowledge of the state includes some random noice.  
+
+</p>
+
+
+
+
+<a href="https://en.wikipedia.org/wiki/Kalman_filter"><img class="u-full-width" src="Basic_concept_of_Kalman_filtering.svg"></img></a>
+
+
+	
+<div class="kpl">
+<div class="h3">Motors and Hardware</div>	
+
+
+<a href="https://www.ebay.de/itm/E-Motor-Elektromotor-auch-Generator-UNITE-MY1020GD-DC-500W-24V-36V-mit-Ritzel-/310703862054?var=&hash=item485764b126:m:mxtZ76rqAYZJp9XfdBk-SwAhttps://www.ebay.de/itm/E-Motor-Elektromotor-auch-Generator-UNITE-MY1020GD-DC-500W-24V-36V-mit-Ritzel-/310703862054?var=&hash=item485764b126:m:mxtZ76rqAYZJp9XfdBk-SwA">Motor, Ebay</a>
+
+
+E-Motor Elektromotor auch Generator UNITE MY1020GD DC 500W 24V/36V, mit Ritzel
+
+
+
+<table>
+<tr>
+  <th></th>
+  <th></th>
+</tr>
+
+
+<tr>
+  <td>Power (Ausgangsleistung)</td>
+  <td>500 W / 24 V / 36 V</td>
+</tr>
+
+
+<tr>
+  <td>Rated Current (Nennstrom (=belastet))</td>
+  <td>24V: $\leq 26.7$ A; 36V: $\leq 17.8$ A</td>
+</tr>
+
+
+<tr>
+  <td>Rated RPM (Nenndrehzahl (=belastet))</td>
+  <td>$2500 \pm 5 \%$</td>
+</tr>
+
+
+<tr>
+  <td>Max speed (maximale Drehzahl (=unbelastet))</td>
+  <td>$3000 \pm 5 \%$</td>
+</tr>
+
+
+<tr>
+  <td>Current (Strom (= unbelastet))</td>
+  <td>24V: $\leq 2.5$ A; 36V: $\leq 2.0$ A</td>
+</tr>
+
+
+<tr>
+  <td>Torque (Drehmoment)</td>
+  <td>$1.91$ Nm $\pm 5 \%$</td>
+</tr>
+
+
+<tr>
+  <td>Force transmission (Kraftübertragung über)</td>
+  <td>Chain, 11 teeth (Kettenritzel 11 Zähne, Abstand [pitch] $6.35$ mm; wechselbar). Same dimension as #25 chain.
+</td>
+</tr>
+
+
+<tr>
+  <td>Shaft Diameter (Wellendurchmesser)</td>
+  <td>10 mm (Anflachung: 8.5 mm)</td>
+</tr>
+
+
+<tr>
+  <td>Efficieny (Effizienz)</td>
+  <td>$78\%$</td>
+</tr>
+
+
+<tr>
+  <td>Mass (Gewicht)</td>
+  <td>24V: $4.1$ kg; 36V: $4.2$ kg</td>
+</tr>
+
+
+</table>
+
+
+
+<img src="motor_24V.jpg">
+<img src="motor_36V.jpg">
+
+
+    
+</div>
+<h4>Simple motor model</h4>
+<a href="http://sebastiannilsson.com/wp-content/uploads/2013/05/Self-balancing-two-wheeled-robot-report.pdf">Self balancing two wheeled robot report</a>
+
+<p>
+The DC motor can be modelled by a simple electric circuit consisting of $R$, $L$ and the back EMF $u_e$ which is assumed  proportional to the angular velocity $\dot\theta_w$ as
+$$
+u_e = K_e(\dot \theta_w - \dot \theta_b)
+$$
+</p>
+
+<p>The torque $T$ produced by the motor is assumed to be proportional to the winding current $i$
+$$
+T = K_m i
+$$
+Thus, we have $u = Ri + L \frac{di}{dt} + u_e$, and assuming that the mechanical system dynamics is slow compared to the electrical system, we can omit the current transient. Thus, by solving for $i$ yields
+$$
+i = \frac{u-u_e}R = \frac uR - \frac {K_e}R (\dot\theta_w - \dot \theta_b)
+$$
+which gives an expression for the torque
+$$
+T =  \frac {K_m}R u - \frac {K_eK_m}R (\dot\theta_w - \dot \theta_b)
+$$
+
+
+
+	</div>
+
+
+
+<div class="kpl">
+<h3>Mechanics, tire and transmission</h3>	
+
+<div class="row">
+<div class="eight columns">
+
+<p>We use 20 cm (radius $4.6$ inch $= 11.9$ cm) diameter Karting car wheel. The axle diameter is $20$ mm, and we use <em>Spiral</em> axle as an axis. </p>
+
+<p>The velocity of the uniboard should be about 20 km/h, thus $v=\omega_1 r$ gives the revolutions $\omega_1 = v/r = (20/3.6)$ m/s $ /0.119$ m $= 46.685$ rev/s. Because the motor rotates at 2500 RPM, the gear ratio should be $2500:47 \approx 2500:50 = 50:1$. The sprocket wheel is with 11 teeth, thus the tire sprocket should be 55 teeth.
+</p>
+
+<p>The chain to the motor is 6.35 mm, and we assume that it is #25 standard and cheap chain. 
+</p>
+
+<p>The axle is mounted using normal main bearing.</p>
+</div>
+
+<div class="four columns">
+<img class="u-full-width" src="images/takaratas.png">
+</div>
+</div>
+
+</div>
+
+
+
+<div class="kpl">
+<h3></h3>	
+
+</div>
+	
+<div class="kpl">
+<h3>Wheel torque</h3>	
+
+$$
+\begin{align*}
+J_w \ddot \theta_w &= T - rF_s - T_f \\
+M_w \\ddot x_w &= F_s - F
+\end{align*}
+$$
+the term $F_s$ is the static friction force due to the contact between the wheels and and the surface. $T_f$ is the friction torque, proportional to the angular velocity.
+
+We have, by substituting $T$ into above equation
+$$
+F_s = -\frac{J_w}r \ddot \theta_w - \frac{T_f}r - \frac{K_eK_m}{rR}(\dot \theta_w - \dot \theta_b) + \frac{K_m}{rR}u
+$$
+
+</div>
+	
+<div class="kpl">
+<h3>PID controller</h3>	
+
+<div class="row">
+<div class="six columns">
+
+
+<p>PID controller is a general controller that uses also the previous data (or states) to control the system. P stands for proportional, I for integration (prediction of the future state) and D is difference (the old state). It can be written formally as</p>
+$$
+\begin{align*}
+C(t) = k_p \Delta \theta(t) + k_i \int_0^t \Delta \theta(t)d t  + k_d  \frac{d \Delta \theta(t) }{d t}
+\end{align*}
+$$
+<p>The general representation assumes continous time. The integration and differentation can be---of course---substituted to their discrete time equivalents. </p>
+
+
+<p>Here, we assume that the input is the deviation angle $\Delta \theta$ from a horizontal state. Thus, we aim to have $\Delta \theta = 0$. </p>
+
+<p>The discrete integration is widely done by rectangle method; eg. area is length times width. However, we need to ensure that the time interval is equal as possible. Use the timer. 
+
+</p>
+<p>
+The discrete derivative, differential, is usually taken as a slope of a (secant) line between two adjacent deviation angles. 
+</p>
+
+
+
+
+<ul>
+
+<li><a href="http://www.electronoobs.com/eng_robotica_tut6_1.php">PID drone</a></li>
+
+<li><a href="https://www.hackster.io/87464/small-segway-with-arduino-101-2b6ee6">Small segway</a></li>
+
+<li><a href="http://ww1.microchip.com/downloads/en/AppNotes/00964A.pdf">inverted pendulum</a></li>
+<li><a href="http://www.instructables.com/id/Arduino-Self-Balancing-Robot-1/">PID robo</a></li>
+</ul>
+
+<p>The input of the PID controller is the error from the system.
+
+The aim is to have the uniboard balanced, which gives $\phi=0$. 
+
+</p>
+<p>
+
+Error = set point reading - current accelerometer reading - current gyro reading
+
+</p>
+<p>The proportional term increases the motor power as the system leans further and decreases the motor power as the system approaches the upright position.</p>
+<p>The differential term acts as a damper reducing oscillation.</p>
+
+<p>For tuning the PID control of motor torque. . .</p>
+
+<h3>PID controller</h3>	
+
+
+<h4>JOtain</h4>
+<a href="http://www.instructables.com/id/Self-Balancing-Robot-Using-PID-Algorithm-STM-MC/">PID</a>
+
+<h4>Lisää pid</h4>
+
+<a href="https://roboticdreams.wordpress.com/2015/05/10/building-an-arduino-based-self-balancing-robot-part-2/">Lisää pid</a>
+
+
+
+	</div>
+<div class="six columns">
+<h2>MOI</h2>
+
+</div>
+</div>
+
+</div>
+	
+<div class="kpl">
+<div class="h3">Program flow diagram</div>	
+	</div>
+
+
+<div class="kpl">
+<div class="h3">Timer</div>	
+	</div>
+
+	
+<div class="kpl">
+<div class="h3"></div>	
+	</div>
+
+
+	<div class="kpl">
+	<div class="h3">Links</div>	
+
+<ul>
+    <li><a href="https://sites.google.com/site/onewheeledselfbalancing/Home/18-2013superskate">Superskate</a></li>
+    <li><a href="https://github.com/TKJElectronics/KalmanFilter/blob/ad611fb3e5d1ef2cb384d28ceab6a308c7b0d1b6/Kalman.h">Kalman Filter, Library </a></li>
+    <li><a href="https://en.wikipedia.org/wiki/Linear-quadratic_regulator">Linear Quadratic Regulator. Wikipedia</a></li>
+    <li><a href="http://www.uta.edu/utari/acs/ee4314/lectures/Lecture%2024.pdf">Linear Quadratic Regulator. Lecture Notes</a></li>
+    <li><a href="http://www.uta.edu/utari/acs/Lectures/lqr.pdf">Linear Quadratic Regulator State Feedback Design</a></li>
+    <li><a href="http://www.instructables.com/id/Easy-build-self-balancing-skateboardrobotsegway-/">Instructables: Self Balancing Electric Skateboard</a></li>
+    <li><a href="https://www.youtube.com/user/XenonJohnD/videos">Unicycle Designs</a></li>
+    <li><a href="http://www.robosys.co.uk/">Balancing one wheeled scooter</a></li>
+    <li><a href="https://www.youtube.com/watch?v=lf-qkxBWNgA">Balancing One wheel Scooter -- technical Overview</a></li>
+    <li><a href="http://www.instructables.com/id/Self-Balancing-Unicycle/">Self Balancing Unicycle</a></li>
+    <li><a href="http://www.instructables.com/id/Arduino-Self-Balance-Controller-using-DIGITAL-IMU-/">Arduino self balance controller using digital imu</a></li>
+    <li><a href="https://www.youtube.com/watch?v=YHAjM-BpKJs">Sam Doyle: One-wheeled</a></li>
+    <li><a href="https://www.youtube.com/watch?v=KUYLUZD2u-s">Self Balancing Skateboard</a></li>
+    <li><a href="http://teamcosmos.com/skateone/index.shtml">Team Cosmos</a></li>
+    <li><a href="https://www.dfrobot.com/blog-880.html">Small segway with arduino</a></li>
+    <li><a href=""></a></li>
+    <li><a href=""></a></li>
+    <li><a href=""></a></li>
+</ul>
+
+
+    </div>
+
+	
+
